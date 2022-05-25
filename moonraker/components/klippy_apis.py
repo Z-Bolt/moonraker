@@ -60,13 +60,13 @@ class KlippyAPI(Subscribable):
             "/printer/firmware_restart", ['POST'], self._gcode_firmware_restart)
 
     async def _gcode_pause(self, web_request: WebRequest) -> str:
-        return await self.pause_print()
+        return await self._send_klippy_request("pause_resume/pause", {})
 
     async def _gcode_resume(self, web_request: WebRequest) -> str:
-        return await self.resume_print()
+        return await self._send_klippy_request("pause_resume/resume", {})
 
     async def _gcode_cancel(self, web_request: WebRequest) -> str:
-        return await self.cancel_print()
+        return await self._send_klippy_request("pause_resume/cancel", {})
 
     async def _gcode_start_print(self, web_request: WebRequest) -> str:
         filename: str = web_request.get_str('filename')
@@ -119,25 +119,6 @@ class KlippyAPI(Subscribable):
             else:
                 raise
         return result
-    async def pause_print(
-        self, default: Union[SentinelClass, _T] = SENTINEL
-    ) -> Union[_T, str]:
-        self.server.send_event("klippy_apis:pause_requested")
-        return await self._send_klippy_request(
-            "pause_resume/pause", {}, default)
-    async def resume_print(
-        self, default: Union[SentinelClass, _T] = SENTINEL
-    ) -> Union[_T, str]:
-        self.server.send_event("klippy_apis:resume_requested")
-        return await self._send_klippy_request(
-            "pause_resume/resume", {}, default)
-
-    async def cancel_print(
-        self, default: Union[SentinelClass, _T] = SENTINEL
-    ) -> Union[_T, str]:
-        self.server.send_event("klippy_apis:cancel_requested")
-        return await self._send_klippy_request(
-            "pause_resume/cancel", {}, default)            
 
     async def list_endpoints(self,
                              default: Union[SentinelClass, _T] = SENTINEL

@@ -722,10 +722,10 @@ class GitRepo:
         #         "Repo not on offical remote/branch, expected: "
         #         f"origin/{self.primary_branch}, detected: "
         #         f"{self.git_remote}/{self.git_branch}")
-        if self.untracked_files:
-            self.repo_anomalies.append(
-                f"Repo has untracked source files: {self.untracked_files}"
-            )
+        # if self.untracked_files:
+        #     self.repo_anomalies.append(
+        #         f"Repo has untracked source files: {self.untracked_files}"
+        #     )
         if self.diverged:
             self.repo_anomalies.append("Repo has diverged from remote")
         if self.head_detached:

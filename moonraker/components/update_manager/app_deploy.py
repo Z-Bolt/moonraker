@@ -31,7 +31,6 @@ from typing import (
 if TYPE_CHECKING:
     from ...confighelper import ConfigHelper
     from ..klippy_connection import KlippyConnection as Klippy
-    from .update_manager import CommandHelper
     from ..machine import Machine
     from ..file_manager.file_manager import FileManager
 
@@ -39,10 +38,8 @@ DISTRO_ALIASES = [distro.id()]
 DISTRO_ALIASES.extend(distro.like().split())
 
 class AppDeploy(BaseDeploy):
-    def __init__(
-            self, config: ConfigHelper, cmd_helper: CommandHelper, prefix: str
-    ) -> None:
-        super().__init__(config, cmd_helper, prefix=prefix)
+    def __init__(self, config: ConfigHelper, prefix: str) -> None:
+        super().__init__(config, prefix=prefix)
         self.config = config
         type_choices = {str(t): t for t in AppType.valid_types()}
         self.type = config.getchoice("type", type_choices)
@@ -134,17 +131,21 @@ class AppDeploy(BaseDeploy):
         if self.py_exec is not None:
             self.python_reqs = self.path.joinpath(config.get("requirements"))
             self._verify_path(config, 'requirements', self.python_reqs)
-        deps = config.get("system_dependencies", None)
-        if deps is not None:
-            self.system_deps_json = self.path.joinpath(deps).resolve()
-            self._verify_path(config, 'system_dependencies', self.system_deps_json)
-        else:
+        if not self._configure_sysdeps(config):
             # Fall back on deprecated "install_script" option if dependencies file
             # not present
             install_script = config.get('install_script', None)
             if install_script is not None:
                 self.install_script = self.path.joinpath(install_script).resolve()
                 self._verify_path(config, 'install_script', self.install_script)
+
+    def _configure_sysdeps(self, config: ConfigHelper) -> bool:
+        deps = config.get("system_dependencies", None)
+        if deps is not None:
+            self.system_deps_json = self.path.joinpath(deps).resolve()
+            self._verify_path(config, 'system_dependencies', self.system_deps_json)
+            return True
+        return False
 
     def _configure_managed_services(self, config: ConfigHelper) -> None:
         svc_default = []
@@ -262,6 +263,51 @@ class AppDeploy(BaseDeploy):
                     svc = kconn.unit_name
                 await machine.do_service_action("restart", svc)
 
+    def _convert_version(self, version: str) -> Tuple[str | int, ...]:
+        version = version.strip()
+        ver_match = re.match(r"\d+(\.\d+)*((?:-|\.).+)?", version)
+        if ver_match is not None:
+            return tuple([
+                int(part) if part.isdigit() else part
+                for part in re.split(r"\.|-", version)
+            ])
+        return (version,)
+
+    def _parse_system_dep(self, full_spec: str) -> str | None:
+        parts = full_spec.split(";", maxsplit=1)
+        if len(parts) == 1:
+            return full_spec
+        dep_parts = re.split(r"(==|!=|<=|>=|<|>)", parts[1].strip())
+        if len(dep_parts) != 3 or dep_parts[0].strip().lower() != "distro_version":
+            logging.info(f"Invalid requirement specifier: {full_spec}")
+            return None
+        pkg_name = parts[0].strip()
+        operator = dep_parts[1].strip()
+        distro_ver = self._convert_version(distro.version())
+        req_version = self._convert_version(dep_parts[2].strip())
+        try:
+            if operator == "<":
+                if distro_ver < req_version:
+                    return pkg_name
+            elif operator == ">":
+                if distro_ver > req_version:
+                    return pkg_name
+            elif operator == "==":
+                if distro_ver == req_version:
+                    return pkg_name
+            elif operator == "!=":
+                if distro_ver != req_version:
+                    return pkg_name
+            elif operator == ">=":
+                if distro_ver >= req_version:
+                    return pkg_name
+            elif operator == "<=":
+                if distro_ver <= req_version:
+                    return pkg_name
+        except TypeError:
+            pass
+        return None
+
     async def _read_system_dependencies(self) -> List[str]:
         eventloop = self.server.get_event_loop()
         if self.system_deps_json is not None:
@@ -281,7 +327,13 @@ class AppDeploy(BaseDeploy):
                             f"Dependency file '{deps_json.name}' contains an empty "
                             f"package definition for linux distro '{distro_id}'"
                         )
-                    return dep_info[distro_id]
+                        continue
+                    processed_deps: List[str] = []
+                    for dep in dep_info[distro_id]:
+                        parsed_dep = self._parse_system_dep(dep)
+                        if parsed_dep is not None:
+                            processed_deps.append(parsed_dep)
+                    return processed_deps
             else:
                 self.log_info(
                     f"Dependency file '{deps_json.name}' has no package definition "

@@ -30,8 +30,8 @@ if TYPE_CHECKING:
     from ..http_client import HttpClient
 
 class GitDeploy(AppDeploy):
-    def __init__(self, config: ConfigHelper) -> None:
-        super().__init__(config, "Git Repo")
+    def __init__(self, config: ConfigHelper, cmd_helper: CommandHelper) -> None:
+        super().__init__(config, cmd_helper, "Git Repo")
         self._configure_path(config)
         self._configure_virtualenv(config)
         self._configure_dependencies(config)
@@ -49,7 +49,7 @@ class GitDeploy(AppDeploy):
                     "a minimum of 8 characters."
                 )
         self.repo = GitRepo(
-            self.cmd_helper, self.path, self.name, self.origin, self.moved_origin,
+            cmd_helper, self.path, self.name, self.origin, self.moved_origin,
             self.primary_branch, self.channel, pinned_commit
         )
 
@@ -152,7 +152,6 @@ class GitDeploy(AppDeploy):
     def get_update_status(self) -> Dict[str, Any]:
         status = super().get_update_status()
         status.update(self.repo.get_repo_status())
-        status["name"] = self.name
         return status
 
     def get_persistent_data(self) -> Dict[str, Any]:
@@ -716,8 +715,8 @@ class GitRepo:
         upstream_url = self.upstream_url.lower()
         if upstream_url[-4:] != ".git":
             upstream_url += ".git"
-        # if upstream_url != self.origin_url.lower():
-        #     self.repo_anomalies.append(f"Unofficial remote url: {self.upstream_url}")
+        if upstream_url != self.origin_url.lower():
+            self.repo_anomalies.append(f"Unofficial remote url: {self.upstream_url}")
         # if self.git_branch != self.primary_branch or self.git_remote != "origin":
         #     self.repo_anomalies.append(
         #         "Repo not on offical remote/branch, expected: "

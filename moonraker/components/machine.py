@@ -51,8 +51,8 @@ if TYPE_CHECKING:
     from .announcements import Announcements
     from .proc_stats import ProcStats
     from .dbus_manager import DbusManager
-    from dbus_fast.aio.proxy_object import ProxyInterface
-    from dbus_fast.signature import Variant
+    from dbus_next.aio.proxy_object import ProxyInterface
+    from dbus_next.signature import Variant
     SudoReturn = Union[Awaitable[Tuple[str, bool]], Tuple[str, bool]]
     SudoCallback = Callable[[], SudoReturn]
 
@@ -228,7 +228,7 @@ class Machine:
             if self.server.is_verbose_enabled():
                 logging.exception("Failed to import libcamera")
             self.server.add_log_rollover_item(
-                "libcamera", "Module libcamera unavailable, import failed"
+                "libcamera", "Module libcamera unavailble, import failed"
             )
             return None
 
@@ -1806,7 +1806,7 @@ class InstallValidator:
             raise ValidationError(
                 "Moonraker requires sudo permission to update the system "
                 "service. Please check your notifications for further "
-                "instructions."
+                "intructions."
             )
         self._sudo_requested = False
         svc_dest = pathlib.Path(props["FragmentPath"])

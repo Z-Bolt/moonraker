@@ -228,6 +228,8 @@ class MoonrakerApp:
 
         mimetypes.add_type('text/plain', '.log')
         mimetypes.add_type('text/plain', '.gcode')
+        mimetypes.add_type('text/plain', '.plgx')
+        mimetypes.add_type('text/plain', '.plg')
         mimetypes.add_type('text/plain', '.cfg')
 
         # Set up HTTP routing.  Our "mutable_router" wraps a Tornado Application

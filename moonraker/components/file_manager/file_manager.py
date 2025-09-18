@@ -54,7 +54,7 @@ if TYPE_CHECKING:
     StrOrPath = Union[str, pathlib.Path]
     _T = TypeVar("_T")
 
-VALID_GCODE_EXTS = ['.gcode', '.g', '.gco', '.ufp', '.nc']
+VALID_GCODE_EXTS = ['.gcode', '.g', '.gco', '.ufp', '.nc', '.plgx', '.plg']
 METADATA_SCRIPT = os.path.abspath(os.path.join(
     os.path.dirname(__file__), "metadata.py"))
 WATCH_FLAGS = iFlags.CREATE | iFlags.DELETE | iFlags.MODIFY \

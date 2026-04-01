@@ -611,6 +611,16 @@ user_filter: (&(objectClass=user)(cn=USERNAME))
 #   Jinja2 Templates, see the [secrets] section for details.
 #   The default is empty, which will change the lookup query depending on
 #   is_active_directory.
+membership_attribute: memberOf
+#   The name of the attribute that contains a list of groups the user is
+#   a member of.  Can be "memberOf" or "isMemberOf".  Default is "memberOf".
+check_dn_case: True
+#   Determines whether or not DN comparisons performed by Moonraker are
+#   case sensitive.  Currently this applies to the 'group_dn' when it is
+#   configured.  Default is True.
+#   Note:  This option does NOT apply to LDAP search operations.  The LDAP
+#   spec states that DN comparisons should not be case sensitive, however it
+#   is possible for server and/or administrator to override this behavior.
 ```
 
 ### `[octoprint_compat]`
@@ -2990,9 +3000,7 @@ For a typical single instance installation this resolves to
 `$HOME/printer_data/moonraker.secrets`. This may be a symbolic link.
 ///
 
-Example ini secrets file:
-
-```ini {title="secrets.ini"}
+```ini {title="Example moonraker.secrets ini file"}
 # /home/pi/printer_data/moonraker.secrets
 
 [mqtt_credentials]
@@ -3004,9 +3012,7 @@ token: long_token_string
 
 ```
 
-Example json secrets file:
-
-```json {title="secrets.json"}
+```json {title="Example moonraker.secrets json file"}
 {
     "mqtt_credentials": {
         "username": "mqtt_user",
@@ -3071,34 +3077,80 @@ domain: switch
 
 ### `[notifier]`
 
-Enables the notification service. Multiple "notifiers" may be configured,
-each with their own section, ie: `[notifier my_discord_server]`,
-`[notifier my_phone]`.
+Enables push notification services. Multiple "notifiers" may be configured,
+each with their own section in the format of `[notifier <name>]`, ie:
+`[notifier my_discord_server]` or`[notifier my_phone]`.
 
-All notifiers require an url for a service to be set up. Moonraker depends on
-[Apprise](https://github.com/caronc/apprise) to emit notifications.
-Available services and their corresponding at urls may be found on the
-[Apprise Wiki](https://github.com/caronc/apprise/wiki).
+Moonraker leverages the [Apprise](https://github.com/caronc/apprise) Python
+library to emit notifications.  As such, the Apprise
+[documentation](https://appriseit.com/services/)
+should be consulted to determine the format of the notifier's `url` option.
+
+/// Note
+The Apprise library is actively developed and frequently adds new notification
+services. When at least one notifier has been configured `moonraker.log` will
+report the currently installed version of Apprise.  Alternatively Moonraker's
+[pyproject.toml](https://github.com/Arksine/moonraker/blob/master/pyproject.toml)
+can be be referenced to determine the latest version of Apprise that should be
+installed. For example:
+
+```toml
+[project]
+name = "moonraker"
+dynamic = ["version"]
+description = "API Server for Klipper"
+authors = [
+    {name = "Eric Callahan", email = "arksine.code@gmail.com"},
+]
+dependencies = [
+    "tornado>=6.2.0,<=6.5.5",
+    "pyserial==3.4",
+    "pillow>=9.5.0, <=12.1.0",
+    "streaming-form-data>=1.11.0, <=1.19.1",
+    "distro==1.9.0",
+    "inotify-simple==2.0.1",
+    "libnacl==2.1.0",
+    "paho-mqtt==2.1.0",
+    "zeroconf>=0.131.0, <=0.148.0",
+    "preprocess-cancellation==0.2.1",
+    "jinja2==3.1.6",
+    "dbus-fast>=2.21.3, <=3.1.2",
+    "apprise>=1.9.3, <=1.9.8",
+    "ldap3==2.9.1",
+    "python-periphery==2.4.1",
+    "importlib_metadata>=6.7.0, <=8.7.1",
+]
+...
+```
+From the above we can see that Moonraker pins Apprise to a maximum version
+of 1.9.8 at the time of this writing.  Keep in mind that EOL versions of Python
+may not be able to update to the latest version of Apprise.  As of the time of
+this writing all Python versions below 3.10 have reached End Of Life status.
+
+If the latest pinned version does not support your desired service create a feature
+request on Moonraker's issue tracker to bump the version of the Apprise package.
+///
 
 ```ini {title="Moonraker Config Specification"}
 # moonraker.conf
 
-[notifier telegram]
-url: tgram://{bottoken}/{ChatID}
-#   The url for your notifier. This URL accepts Jinja2 templates,
-#   so you can use [secrets] if you want.  This parameter must be
-#   provided.
+[notifier notification_name]
+url: service://credentials/direction/?parameter=value
+#   The url for the notifier. See the Apprise documentation for notification
+#   service options and url formatting. This option accepts Jinja2 templates with
+#   support for [secrets]. This parameter must be provided.
 events: *
-#   The events this notifier should trigger to. '*' means all events.
-#   You can use multiple events, comma separated.
-#   Valid events:
+#   The events that will trigger a notification. '*' means all events.
+#   This option may include multiple comma separated events.
+#   Valid printer events:
 #      started
 #      complete
 #      error
 #      cancelled
 #      paused
 #      resumed
-#   This parameter must be provided.
+#   This option may also be set to "gcode" if the notifier should only push
+#   "gcode_macro" notifications sent from Klipper. This parameter must be provided.
 body: "Your printer status has changed to {event_name}"
 #   The body of the notification. This option accepts Jinja2 templates, where
 #   the template is passed a context containing the following fields:
@@ -3125,9 +3177,9 @@ attach:
 #   will receive the same context as the "body" and "title" options.  The default
 #   is no attachment will be sent with the notification.
 #
-#   Note: Attachments are not available for all notification services, you can
-#   check if it's supported on the Apprise Wiki.  Be aware that links to items
-#   hosted on your local network can only be viewed within that network.
+#   Note: Attachments are not available for all notification services, refer to
+#   the Apprise documentation for details. Be aware that links to items hosted on
+#   your local network can only be viewed within that network.
 ```
 
 /// Tip
@@ -3136,7 +3188,7 @@ this section receives a list of "arguments" passed to the event.  For
 those familiar with Python this list is known as "variable arguments".
 Currently the notifier only supports two kinds of events: those
 triggered by a change in the job state and those triggered from a remote
-method call frm a `gcode_macro`.
+method call from a `gcode_macro`.
 
 For `remote method` events the `event_args` field will always be
 an empty list.  For `job state` events the `event_args` field will
@@ -3149,7 +3201,8 @@ The `job state` is a dict that contains the values reported by
 Klipper's [print_stats](printer_objects.md#print_stats) object.
 ///
 
-#### An example:
+#### Notifier Examples
+
 ```ini {title="Moonraker Config Example"}
 # moonraker.conf
 

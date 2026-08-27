@@ -101,6 +101,13 @@ max_upload_size: 1024
 max_websocket_connections:
 #   The maximum number of concurrently open websocket connections.
 #   The default is 50.
+use_xheaders: True
+#   When set to True HTTP requests will use the IP address specified in the
+#   X-Real-IP or X-Forwarded-For headers for identification and authorization.
+#   This is useful when using Moonraker behind a proxy, which is the recommended
+#   setup for Moonraker installations.  If the Moonraker instance is intended to
+#   be exclusively accessed directly then this option should be set to False.
+#   The default is True.
 enable_debug_logging: False
 #   ***DEPRECATED***
 #   Verbose logging is enabled by the '-v' command line option.

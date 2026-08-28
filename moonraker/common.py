@@ -425,6 +425,12 @@ class BaseRemoteConnection(APITransport):
         auth: AuthComp = self.server.lookup_component("authorization", None)
         if auth is None:
             return
+        # Clients such as KlipperScreen always include api_key/access_token
+        # in identify.  An empty value means "not provided", not "invalid".
+        if not token:
+            token = None
+        if not api_key:
+            api_key = None
         try:
             if token is not None:
                 self.user_info = auth.validate_jwt(token)
